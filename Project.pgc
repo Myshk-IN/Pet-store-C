@@ -1,0 +1,424 @@
+#include <stdio.h>
+
+void ParodytiVisusParduodamusGyvunus()
+{
+  //EXEC SQL INCLUDE SQLCA;
+
+  EXEC SQL BEGIN DECLARE SECTION;
+    float price;
+    char name[31];
+    char species[21];
+    char breed[21];
+    short ind;
+    char age[22];
+  EXEC SQL END DECLARE SECTION;
+
+  int counter = 0;
+  
+  EXEC SQL WHENEVER SQLERROR GOTO errorGyvunaiView;
+  EXEC SQL WHENEVER NOT FOUND GOTO endGyvunaiView;
+
+  EXEC SQL DECLARE cursGyvunaiView CURSOR FOR
+    SELECT G.Kaina, G.Vardas, T.Rusis, T.Veisle, AGE(CURRENT_DATE, G.Gimimo_data)
+    FROM Gyvunas G 
+    JOIN Tipas T ON G.Tipo_id = T.Tipo_id
+    WHERE G.Nupirktas = FALSE;
+  //  SELECT *
+  //  FROM ParduodamiGyvunai;
+  //If instead of a VIEW a query with a few tables is needed:
+
+  EXEC SQL OPEN cursGyvunaiView;
+  while (1) {
+    EXEC SQL FETCH cursGyvunaiView INTO :price, :name, :species, :breed:ind, :age;
+    ++counter;	
+    printf("||Kaina: %f|", price);
+    printf("Vardas: %s|", name);
+    printf("Rusis: %s|", species);
+    if (ind >= 0)
+      printf("Veisle: %s|", breed);
+    else
+      printf("Veisles nera|");
+    printf("Amzius: %s||\n", age);
+  }
+
+  errorGyvunaiView:
+    printf("SQL klaida: %ld\n", SQLCODE);
+  endGyvunaiView:
+    if(!counter)
+    	printf("Lenteleje nera duomenu!\n");
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL WHENEVER NOT FOUND CONTINUE;
+    EXEC SQL CLOSE cursGyvunaiView;
+}
+
+void ParodytiInformacijaApieVisusPirkejus()
+{
+  //EXEC SQL INCLUDE SQLCA;
+    EXEC SQL BEGIN DECLARE SECTION;
+    long id;
+    char mail[256];
+    char name[101];
+    char surname[101];
+    char phoneNumber[16];
+    char city[51];
+    char street[51];
+    char house[11];
+  EXEC SQL END DECLARE SECTION;
+  
+  int counter = 0;
+  
+  EXEC SQL WHENEVER SQLERROR GOTO errorPirkejai;
+  EXEC SQL WHENEVER NOT FOUND GOTO endPirkejai;
+
+  EXEC SQL DECLARE cursPirkejai CURSOR FOR
+    SELECT * FROM Pirkejas;
+
+  EXEC SQL OPEN cursPirkejai;
+  while (1) {
+    EXEC SQL FETCH cursPirkejai INTO :id, :mail, :name, :surname, :phoneNumber, :city, :street, :house;
+    ++counter;
+    printf("||Pirkejo ID: %ld|", id);
+    printf("El. pastas: %s|", mail);
+    printf("Vardas: %s|", name);
+    printf("Pavarde: %s|", surname);
+    printf("Tel.nr.: %s|", phoneNumber);
+    printf("Miestas: %s|", city);
+    printf("Gatve: %s|", street);
+    printf("Namas: %s||\n", house);
+  }
+
+  errorPirkejai:
+    printf("SQL klaida: %ld\n", SQLCODE);
+  endPirkejai:
+    if(!counter)
+    	printf("Lenteleje nera duomenu!\n");
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL WHENEVER NOT FOUND CONTINUE;
+    EXEC SQL CLOSE cursPirkejai;
+}
+
+short ModifikuotiGyvunoTipa()
+{
+  EXEC SQL BEGIN DECLARE SECTION;
+    char species[21];
+    char breed[21];
+    short ind;
+  EXEC SQL END DECLARE SECTION;
+
+  char inbuffer[40]={0};
+  short ok = 1;
+
+  EXEC SQL WHENEVER SQLERROR GOTO errorTipaiModify;
+  EXEC SQL WHENEVER NOT FOUND GOTO endTipaiModify;
+
+  EXEC SQL DECLARE cursTipaiModify CURSOR FOR
+    SELECT Rusis, Veisle
+    FROM Tipas FOR UPDATE;// OF Rusis, Veisle; // IS OF... PART NEEDED?
+
+  EXEC SQL OPEN cursTipaiModify;
+
+  while(1){
+    EXEC SQL FETCH cursTipaiModify INTO :species, :breed INDICATOR :ind;
+    printf("||Rusis: %s|", species ) ;
+    if (ind >= 0)
+      printf("Veisle: %s||\n", breed) ;
+    else
+      printf("Veisle: – ||\n") ;
+    actionTipaiModify:
+      printf("Pasirinkite: N, D, U, I, F, C\n") ;
+      scanf("%s", inbuffer) ;
+      switch(inbuffer[0]) {
+        case 'N':
+          break;
+        case 'D':
+          printf("*Tipu trynimas negalimas*\n");        
+          /*EXEC SQL DELETE FROM Tipas
+          WHERE CURRENT OF cursTipaiModify;*/
+          break;
+        case 'U': 
+          printf("*Tipu atnaujinimas negalimas*\n");
+          /*printf("Iveskite rusi: ");
+          scanf("%s", &species);
+          printf("Iveskite veisle: ");
+          scanf("%s", &breed);
+
+          EXEC SQL UPDATE Tipas
+          SET Rusis = :species, Veisle = :breed
+          WHERE CURRENT OF cursTipaiModify ;*/
+          break;
+        case 'I':
+          printf("*Naujo tipo iterpimas (rusis gali buti tik: Kate, Ziurkenas, Papuga, Juru kiaulyte, Ziurkenas, Triusis, Suo)*\n");
+          printf("Iveskite rusi: ");
+          scanf("%s", &species);
+          printf("Iveskite veisle: ");
+          scanf("%s", &breed);
+          
+          EXEC SQL INSERT INTO Tipas (Rusis, Veisle) VALUES(:species, :breed);
+          printf("*Naujas tipas pridetas ir yra saraso gale*\n");
+          break;
+        case 'F': 
+          goto endTipaiModify;
+        case 'C':
+          ok = 0 ;
+          goto endTipaiModify;
+        default: goto actionTipaiModify;
+    } 
+  } 
+  errorTipaiModify:
+    printf("SQL Klaida: %ld\n", SQLCODE); 
+    ok = 0;
+  endTipaiModify:
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL WHENEVER NOT FOUND CONTINUE;
+    EXEC SQL CLOSE cursTipaiModify;
+
+  if(ok)
+    EXEC SQL COMMIT;
+  else
+    EXEC SQL ROLLBACK ;
+  
+  return ok ;
+}
+
+void ParodytiPirkejoUzsakyma()
+{
+  //EXEC SQL INCLUDE SQLCA;
+    EXEC SQL BEGIN DECLARE SECTION;
+    float overallPrice;
+    char name[101];
+    char surname[101];
+    char phoneNumber[16];
+    char dateOfOrder[20];
+    float priceForPet;
+    char nameOfPet[31];
+    char species[21];
+    char breed[21];
+    short ind;
+    
+    char inputName[101] = {' '};
+    char inputSurname[101] = {' '};
+    char inputPhone[16] = {' '};
+  EXEC SQL END DECLARE SECTION;
+  
+  int counter = 0;
+
+  printf("Iveskite varda: ");
+	scanf("%s", inputName);
+  printf("Iveskite pavarde: ");
+	scanf("%s", inputSurname);
+  printf("Iveskite telefono numeri: ");
+	scanf("%s", inputPhone);
+  
+  EXEC SQL WHENEVER SQLERROR GOTO errorPirkejoUzsakymas;
+  EXEC SQL WHENEVER NOT FOUND GOTO endPirkejoUzsakymas;
+
+  EXEC SQL DECLARE cursPirkejoUzsakymas CURSOR FOR
+    SELECT * FROM DetalizuotasUzsakymas
+    WHERE "Vardas" = :inputName AND "Pavarde" = :inputSurname AND "Tel. nr." = :inputPhone;
+
+  EXEC SQL OPEN cursPirkejoUzsakymas;
+  while (1) {
+    EXEC SQL FETCH cursPirkejoUzsakymas INTO :overallPrice, :name, :surname, :phoneNumber, :dateOfOrder, :priceForPet, :nameOfPet, :species, :breed:ind;
+    ++counter;
+    printf("||Bendra suma: %f|", overallPrice);
+    printf("Vardas: %s|", name);
+    printf("Pavarde: %s|", surname);
+    printf("Tel.nr.: %s|", phoneNumber);
+    printf("Uzsakymo data: %s|", dateOfOrder);
+    printf("Gyvuno kaina: %f|", priceForPet);
+    printf("Vardas: %s|", nameOfPet);
+    printf("Rusis: %s|", species);
+    if (ind >= 0)
+      printf("Veisle: %s||\n", breed);
+    else
+      printf("Veisle nera||\n");
+  }
+
+  errorPirkejoUzsakymas:
+    printf("SQL klaida: %ld\n", SQLCODE);
+  endPirkejoUzsakymas:
+    if(!counter)
+    	printf("Lenteleje nera duomenu!\n");
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL WHENEVER NOT FOUND CONTINUE;
+    EXEC SQL CLOSE cursPirkejoUzsakymas;
+}
+
+short PirktiGyvunus()
+{
+  EXEC SQL BEGIN DECLARE SECTION;
+    float id;
+    float price;
+    char name[31];
+    char species[21];
+    char breed[21];
+    short ind;
+    char age[22];
+    
+    long pirkejoId;
+    char date[23];
+  EXEC SQL END DECLARE SECTION;
+
+  short counter = 0;
+  char inbuffer[40]={0};
+  short ok = 1;
+  short isFirst = 1;
+
+  EXEC SQL WHENEVER SQLERROR GOTO errorPirktiGyvunus;
+  EXEC SQL WHENEVER NOT FOUND GOTO endPirktiGyvunus;
+
+  EXEC SQL DECLARE cursPirktiGyvunus CURSOR FOR
+    SELECT G.gyvuno_id, G.Kaina, G.Vardas, T.Rusis, T.Veisle, AGE(CURRENT_DATE, G.Gimimo_data)
+    FROM Gyvunas G 
+    JOIN Tipas T ON G.Tipo_id = T.Tipo_id
+    WHERE G.Nupirktas = FALSE;
+    //SELECT *
+    //FROM ParduodamiGyvunai;// FOR READ ONLY;
+
+  printf("Iveskite savo (pirkejo) id: ");
+  scanf("%ld", &pirkejoId);
+
+  EXEC SQL OPEN cursPirktiGyvunus;
+
+  while(1){
+    EXEC SQL FETCH cursPirktiGyvunus INTO :id, :price, :name, :species, :breed:ind, :age;
+    ++counter;	
+    printf("||Gyvuno ID: %ld|", id);
+    printf("|Kaina: %f|", price);
+    printf("Vardas: %s|", name);
+    printf("Rusis: %s|", species);
+    if (ind >= 0)
+      printf("Veisle: %s|", breed);
+    else
+      printf("Veisles nera|");
+    printf("Amzius: %s||\n", age);
+    
+    actionPirktiGyvunus:
+      printf("Ar perkate: (Y/N) (Paspauskite F, norint pabaigti ir isaugoti, arba C - pabaigti neissaugojus)\n") ;
+      scanf("%s", inbuffer) ;
+      switch(inbuffer[0]) {
+        case 'N':
+          break;
+        case 'Y':
+          printf("*Naujo uzsakymo iterpimas*\n");
+          if(isFirst)
+          {
+              EXEC SQL DECLARE cursTimeStamp CURSOR FOR
+              	SELECT CURRENT_TIMESTAMP;
+              EXEC SQL OPEN cursTimeStamp;	
+              EXEC SQL FETCH cursTimeStamp INTO :date;
+              EXEC SQL CLOSE cursTimeStamp;
+              EXEC SQL INSERT INTO Uzsakymas (pirkejo_id, uzsakymo_data) VALUES(:pirkejoId, :date);
+              isFirst = 0;
+	  }
+	  
+          EXEC SQL INSERT INTO Pirkimas VALUES((SELECT uzsakymo_id FROM Uzsakymas WHERE pirkejo_id = :pirkejoId AND uzsakymo_data = :date), :id); // to be added more parameters 
+          printf("*Naujas uzsakymas (ir pirkimai) pridetas*\n");
+          break;
+        case 'F': 
+          goto endPirktiGyvunus;
+        case 'C':
+          ok = 0 ;
+          goto endPirktiGyvunus;
+        default: goto actionPirktiGyvunus;
+    } 
+  } 
+  errorPirktiGyvunus:
+    printf("SQL Klaida: %ld\n", SQLCODE); 
+    ok = 0;
+  endPirktiGyvunus:
+    if(!counter)
+      printf("Lenteleje nera duomenu!\n");
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL WHENEVER NOT FOUND CONTINUE;
+    EXEC SQL CLOSE cursPirktiGyvunus;
+
+  if(ok)
+    EXEC SQL COMMIT;
+  else
+    EXEC SQL ROLLBACK ;
+  
+  return ok ;
+}
+
+int main()
+{
+  printf("Programa pradeda darba\n");
+
+  EXEC SQL CONNECT TO studentu@pgsql3.mif USER deol8767 USING "147147147a";
+  //EXEC SQL INCLUDE SQLCA;
+  printf("CONNECT TO studentu. SQLCODE=%ld\n", SQLCODE);
+
+  if( 0 == SQLCODE ) 
+  {
+    printf("Sveiki, deol8767! Jus esate prisijunges prie Studentu duomenu bazes.\n");
+    
+    int isDone = 0;
+    char input[40] = {0};
+    short transationRezult = -1;
+    
+    while(!isDone)
+    {
+        printf("Prasome ivesti funkcija arba paspausti ? norint suzinoti, ka galite padaryti su db duomenimis.\n");
+        printf("(Ivedant funkcijos varda issaugojami tik 1-2 pirmi simboliai, kiti yra ignoruojami)\n");
+	scanf("%s", input);
+	switch(input[0])
+	{
+	    case '?':
+	    printf("SP - parodo visus pirkejus\n");
+	    printf("Su - parodo visus pirkejo uzsakymus\n");
+	    printf("Sg - pardodo visus parduodamus gyvunus\n");
+	    printf("MT - modifikuoti (kurti naujus) tipus\n");
+	    printf("MG - pirkti gyvunus\n");
+	    printf("E - darbas baigiamas\n");
+	    break;
+	    
+	    case 'S':
+	    	switch(input[1])
+	    	{
+	    	   case 'P':
+	    	   ParodytiInformacijaApieVisusPirkejus();
+	    	   break;
+	    	   case 'g':
+	    	   ParodytiVisusParduodamusGyvunus();
+	    	   break;
+	    	   case 'u':
+	    	   ParodytiPirkejoUzsakyma();
+	    	   break;
+	    	}
+	    break;
+	    
+	    case 'M':
+	    	switch(input[1])
+	    	{
+	    	   case 'T':
+	    	   transationRezult = ModifikuotiGyvunoTipa();
+	    	   if(transationRezult)
+	    	   	printf("Tranzakcija baigesi sekmingai.\n");
+	    	   else
+	    	   	printf("Tranzakcijos nebuvo.\n");
+	    	   break;
+	    	   
+	    	   case 'G':
+	  	   transationRezult = PirktiGyvunus();
+	    	   if(transationRezult)
+	    	   	printf("Tranzakcija baigesi sekmingai - gyvunai pirkti.\n");
+	    	   else
+	    	   	printf("Tranzakcijos nebuvo.\n");
+	    	   break;
+	    	}
+	    break;
+	    
+	    case 'E':
+	    isDone = 1;
+	    break;
+	}
+    }
+  }
+  else
+    printf("SQLCODE=%ld\n", SQLCODE );
+
+  EXEC SQL DISCONNECT;
+
+  return 0;
+}
